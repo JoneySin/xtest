@@ -3,7 +3,7 @@ import asyncio
 from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait
 from pyrogram.errors.exceptions.bad_request_400 import ChannelInvalid, ChatAdminRequired, UsernameInvalid, UsernameNotModified, UserIsBlocked
-from info import ADMINS, LOG_CHANNEL, INDEX_EXTENSIONS
+from info import ADMINS, LOG_CHANNEL
 from database.ia_filterdb import save_file
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import temp, get_readable_time
@@ -105,25 +105,24 @@ async def index_files_to_db(lst_msg_id, chat, msg, bot, skip):
                 elif not message.media:
                     no_media += 1
                     continue
-                elif message.media not in [enums.MessageMediaType.VIDEO, enums.MessageMediaType.DOCUMENT]:
+                elif message.media not in [enums.MessageMediaType.VIDEO, enums.MessageMediaType.AUDIO, enums.MessageMediaType.DOCUMENT]:
                     unsupported += 1
                     continue
                 media = getattr(message, message.media.value, None)
                 if not media:
                     unsupported += 1
                     continue
-                elif not (str(media.file_name).lower()).endswith(tuple(INDEX_EXTENSIONS)):
-                    unsupported += 1
-                    continue
+                media.file_type = message.media.value
                 media.caption = message.caption
-                sts = await save_file(media)
-                if sts == 'suc':
+                aynav, vnay = await save_file(media)
+                if aynav:
                     total_files += 1
-                elif sts == 'dup':
+                elif vnay == 0:
                     duplicate += 1
-                elif sts == 'err':
+                elif vnay == 2:
                     errors += 1
         except Exception as e:
-            await msg.reply(f'Index canceled due to Error - {e}')
+            logger.exception(e)
+            await msg.edit(f'Error: {e}')
         else:
             await msg.edit(f'Succesfully saved <code>{total_files}</code> to Database!\nCompleted in {time_taken}\n\nDuplicate Files Skipped: <code>{duplicate}</code>\nDeleted Messages Skipped: <code>{deleted}</code>\nNon-Media messages skipped: <code>{no_media + unsupported}</code>\nUnsupported Media: <code>{unsupported}</code>\nErrors Occurred: <code>{errors}</code>')
